@@ -50,7 +50,7 @@ JOIN Submissions sub ON s.StudentID = sub.StudentID
 JOIN Assignments a ON sub.AssignmentID = a.AssignmentID
 WHERE c.CourseName = 'Computer Science' AND sub.Score > 80;
 
-
+```
 
 ### **Query 4: Find professor names who teach courses where at least one student got an 'A'**
 ```sql
@@ -59,7 +59,7 @@ FROM Professors p
 JOIN Courses c ON p.Department = c.CourseName  -- Assuming department matches course name
 JOIN Enrollments e ON c.CourseID = e.CourseID
 WHERE e.Grade = 'A';
-
+```
 
 
 ### **Query 5: Get the number of students who have failed at least one course**
