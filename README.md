@@ -74,102 +74,100 @@ WHERE e.Grade = 'F';
 
 ---
 
-### **Query 6: Retrieve the GPA of each student who has an average grade greater than 3.0**
+### **Query 1: Find students who have never submitted an assignment but are enrolled in a course**
 ```sql
-SELECT s.StudentID, s.Name, 
-       AVG(CASE e.Grade 
-           WHEN 'A' THEN 4.0
-           WHEN 'B' THEN 3.0
-           WHEN 'C' THEN 2.0
-           WHEN 'D' THEN 1.0
-           WHEN 'F' THEN 0.0
-           ELSE NULL END) AS GPA
+SELECT s.StudentID, s.Name
 FROM Students s
 JOIN Enrollments e ON s.StudentID = e.StudentID
-GROUP BY s.StudentID, s.Name
-HAVING GPA > 3.0;
+LEFT JOIN Submissions sub ON s.StudentID = sub.StudentID
+WHERE sub.StudentID IS NULL;
+
 ```
 **Fixes:**
-- Used `AVG()` to compute GPA.
-- Converted letter grades to numerical values.
-- Added `HAVING GPA > 3.0`.
+- Used `LEFT JOIN` instead of `NOT IN` for better performance and handling of `NULL` values.
+- Checked `WHERE sub.StudentID IS NULL` to ensure students with no submissions are included.
 
 ---
 
-### **Query 7: Retrieve Student, Course, Professor, and Submission Data (Complex Query)**
+### **Query 2: Find students who submitted assignments after the due date more than twice**
+```sql
+SELECT s.Name, COUNT(sub.SubmissionID) AS LateSubmissions
+FROM Students s
+JOIN Submissions sub ON s.StudentID = sub.StudentID
+JOIN Assignments a ON sub.AssignmentID = a.AssignmentID
+WHERE sub.SubmissionDate > a.DueDate
+GROUP BY s.StudentID, s.Name
+HAVING COUNT(sub.SubmissionID) > 2;
+
+```
+**Fixes:**
+- Added `GROUP BY s.StudentID, s.Name` to properly count late submissions per student.
+- Ensured `HAVING COUNT(sub.SubmissionID) > 2` works correctly after aggregation.
+
+---
+
+### **Query 3: Retrieve the GPA of each student who has an average grade greater than 3.0**
+```sql
+SELECT s.StudentID, s.Name, AVG(e.Grade) AS GPA  
+FROM Students s
+JOIN Enrollments e ON s.StudentID = e.StudentID
+GROUP BY s.StudentID, s.Name
+HAVING AVG(e.Grade) > 3.0;
+
+```
+**Fixes:**
+- Added ` GROUP BY s.StudentID, s.Name` to ensure correct aggregation.
+- Used `AVG(e.Grade)` in HAVING instead of GPA since aliasing doesn't work in HAVING.
+
+---
+### **Query 4: Retrieve Student, Course, Professor, and Submission Data**
 ```sql
 SELECT 
     s.StudentID, 
     s.Name AS StudentName, 
-    c.CourseName, 
-    p.Name AS ProfessorName, 
+    COALESCE(c.CourseName, 'No Course') AS CourseName, 
+    COALESCE(p.Name, 'No Professor') AS ProfessorName, 
     COALESCE(sub.LatestSubmissionDate, 'No Submission') AS LatestSubmissionDate, 
-    COALESCE(sub.LatestScore, 'No Submission') AS LatestScore
+    COALESCE(CAST(sub.LatestScore AS CHAR), 'No Submission') AS LatestScore
 FROM Students s
 LEFT JOIN Enrollments e ON s.StudentID = e.StudentID
 LEFT JOIN Courses c ON e.CourseID = c.CourseID
 LEFT JOIN Professors p ON c.ProfessorID = p.ProfessorID
 LEFT JOIN (
-    SELECT sub.StudentID, sub.AssignmentID, 
-           MAX(sub.SubmissionDate) AS LatestSubmissionDate, 
-           sub.Score AS LatestScore
-    FROM Submissions sub
-    GROUP BY sub.StudentID, sub.AssignmentID
-) sub ON s.StudentID = sub.StudentID;
+    SELECT sub1.StudentID, sub1.CourseID, MAX(sub1.SubmissionDate) AS LatestSubmissionDate, sub1.Score
+    FROM Submissions sub1
+    JOIN (
+        SELECT StudentID, CourseID, MAX(SubmissionDate) AS MaxDate
+        FROM Submissions
+        GROUP BY StudentID, CourseID
+    ) sub2 
+    ON sub1.StudentID = sub2.StudentID AND sub1.CourseID = sub2.CourseID AND sub1.SubmissionDate = sub2.MaxDate
+) sub ON s.StudentID = sub.StudentID AND e.CourseID = sub.CourseID;
+
+
 ```
+
+
 **Fixes:**
-- Corrected `JOIN` between `Professors` and `Courses`.
-- Used `LEFT JOIN` to include students without courses.
-- Fixed subquery to fetch the latest assignment submission.
 
----
+- Fixed `JOIN` condition for Professors: `c.ProfessorID = p.ProfessorID`.
+- Used `LEFT JOIN` consistently instead of `RIGHT JOIN` for better results.
+- Improved subquery logic to fetch the latest submission using `GROUP BY StudentID, CourseID`.
+- Used `COALESCE(CAST(sub.LatestScore AS CHAR), 'No Submission')` to avoid data type mismatch.
 
-### **Query 8: List courses that have more than 5 unique students enrolled**
+### **Query 5: List courses that have more than 5 unique students enrolled**
 ```sql
 SELECT c.CourseName, COUNT(DISTINCT e.StudentID) AS UniqueStudents
 FROM Courses c
 JOIN Enrollments e ON c.CourseID = e.CourseID
 GROUP BY c.CourseID, c.CourseName
 HAVING COUNT(DISTINCT e.StudentID) > 5;
+
 ```
+
 **Fixes:**
 - Grouped by `c.CourseID, c.CourseName` for clarity.
 - Used `COUNT(DISTINCT e.StudentID)` to count unique enrollments.
-
----
-###9 Retrieve Student, Course, Professor, and Submission Data
-```sql
-WITH LatestSubmissions AS (
-    SELECT 
-        s1.StudentID, 
-        s1.AssignmentID, 
-        s1.SubmissionDate, 
-        s1.Score
-    FROM Submissions s1
-    JOIN (
-        SELECT StudentID, MAX(SubmissionDate) AS LatestDate
-        FROM Submissions
-        GROUP BY StudentID
-    ) s2 ON s1.StudentID = s2.StudentID AND s1.SubmissionDate = s2.LatestDate
-)
-SELECT 
-    s.StudentID, 
-    s.Name AS StudentName, 
-    c.CourseName, 
-    p.Name AS ProfessorName, 
-    COALESCE(ls.SubmissionDate, 'No Submission') AS LatestSubmissionDate, 
-    COALESCE(CAST(ls.Score AS VARCHAR), 'No Submission') AS LatestScore
-FROM Students s
-LEFT JOIN Enrollments e ON s.StudentID = e.StudentID
-LEFT JOIN Courses c ON e.CourseID = c.CourseID
-LEFT JOIN Professors p ON c.ProfessorID = p.ProfessorID
-LEFT JOIN LatestSubmissions ls ON s.StudentID = ls.StudentID;
-
-```
-
-
-
-
 
 ## 🎯 **Key Takeaways**
 ✅ Fixed incorrect `JOIN` conditions.  
