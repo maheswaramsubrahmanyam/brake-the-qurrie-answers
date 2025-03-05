@@ -40,34 +40,27 @@ GROUP BY e.StudentID, s.Name, e.Semester;
 
 ---
 
-### **Query 3: List professors who have at least one student enrolled in a course they are teaching**
+###  **Query 3: Retrieve students enrolled in "Computer Science" with a score > 80**
 ```sql
-SELECT DISTINCT p.ProfessorID, p.Name
-FROM Professors p
-JOIN Courses c ON p.ProfessorID = c.ProfessorID
-JOIN Enrollments e ON c.CourseID = e.CourseID;
-```
-**Fixes:**
-- Corrected `JOIN` condition between `Professors` and `Courses`.
-- Ensured only professors with students enrolled are included.
-
----
-
-### **Query 4: Find students who submitted assignments after the due date more than twice**
-```sql
-SELECT s.Name, COUNT(sub.SubmissionID) AS LateSubmissions
+SELECT DISTINCT s.Name 
 FROM Students s
+JOIN Enrollments e ON s.StudentID = e.StudentID
+JOIN Courses c ON e.CourseID = c.CourseID
 JOIN Submissions sub ON s.StudentID = sub.StudentID
 JOIN Assignments a ON sub.AssignmentID = a.AssignmentID
-WHERE sub.SubmissionDate > a.DueDate
-GROUP BY s.StudentID, s.Name
-HAVING COUNT(sub.SubmissionID) > 2;
-```
-**Fixes:**
-- Added `GROUP BY` to aggregate late submissions.
-- Used `HAVING` to filter students with more than 2 late submissions.
+WHERE c.CourseName = 'Computer Science' AND sub.Score > 80;
 
----
+
+
+### **Query 4: Find professor names who teach courses where at least one student got an 'A'**
+```sql
+SELECT DISTINCT p.Name 
+FROM Professors p
+JOIN Courses c ON p.Department = c.CourseName  -- Assuming department matches course name
+JOIN Enrollments e ON c.CourseID = e.CourseID
+WHERE e.Grade = 'A';
+
+
 
 ### **Query 5: Get the number of students who have failed at least one course**
 ```sql
